@@ -603,3 +603,22 @@ PONY_API void pony_poll(pony_ctx_t* ctx)
   pony_assert(ctx->current != NULL);
   ponyint_actor_run(ctx, ctx->current, 1);
 }
+
+//
+// GC controls for end users
+//
+
+PONY_API void pony_gc_trigger()
+{
+  pony_ctx_t* ctx = pony_ctx();
+
+  pony_triggergc(ctx);
+}
+
+PONY_API void pony_gc_now()
+{
+  pony_ctx_t* ctx = pony_ctx();
+
+  pony_triggergc(ctx);
+  try_gc(ctx, ctx->current);
+}
