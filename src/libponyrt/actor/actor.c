@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <string.h>
 #include <dtrace.h>
+#include <stdio.h>
 
 #ifdef USE_VALGRIND
 #include <valgrind/helgrind.h>
@@ -137,6 +138,7 @@ static bool handle_message(pony_ctx_t* ctx, pony_actor_t* actor,
 
     case ACTORMSG_BLOCK:
     {
+      pony_assert(ponyint_is_cycle(actor));
       DTRACE3(ACTOR_MSG_RUN, (uintptr_t)ctx->scheduler, (uintptr_t)actor, msg->id);
       actor->type->dispatch(ctx, actor, msg);
       return false;
@@ -192,6 +194,7 @@ bool ponyint_actor_run(pony_ctx_t* ctx, pony_actor_t* actor, size_t batch)
 
   pony_msg_t* msg;
   size_t app = 0;
+  size_t msgs = 0;
 
 #ifdef USE_ACTOR_CONTINUATIONS
   while(actor->continuation != NULL)
@@ -223,6 +226,9 @@ bool ponyint_actor_run(pony_ctx_t* ctx, pony_actor_t* actor, size_t batch)
     {
       // If we handle an application message, try to gc.
       app++;
+      if (ponyint_is_cycle(actor))
+        pony_triggergc(ctx);
+
       try_gc(ctx, actor);
 
       // if we become muted as a result of handling a message, bail out now.
@@ -262,6 +268,10 @@ bool ponyint_actor_run(pony_ctx_t* ctx, pony_actor_t* actor, size_t batch)
         return !has_flag(actor, FLAG_UNSCHEDULED);
       }
     }
+    else
+    {
+      msgs++;
+    }
 
     // Stop handling a batch if we reach the head we found when we were
     // scheduled.
@@ -294,7 +304,7 @@ bool ponyint_actor_run(pony_ctx_t* ctx, pony_actor_t* actor, size_t batch)
   }
 
   // If we have processed any application level messages, defer blocking.
-  if(app > 0)
+  if(app > 0 || msgs > 0)
     return true;
 
   // Tell the cycle detector we are blocking. We may not actually block if a
@@ -681,6 +691,7 @@ PONY_API void pony_unschedule(pony_ctx_t* ctx, pony_actor_t* actor)
   }
 
   set_flag(actor, FLAG_UNSCHEDULED);
+  (void)ctx;
 }
 
 PONY_API void pony_become(pony_ctx_t* ctx, pony_actor_t* actor)

@@ -177,6 +177,8 @@ static view_t* get_view(detector_t* d, pony_actor_t* actor, bool create)
 
   if((view == NULL) && create)
   {
+    printf("view not found\n");
+
     view = (view_t*)POOL_ALLOC(view_t);
     memset(view, 0, sizeof(view_t));
     view->actor = actor;
@@ -389,6 +391,7 @@ static int scan_white(view_t* view)
   return count;
 }
 
+/*
 static bool collect_view(perceived_t* per, view_t* view, size_t rc, int* count)
 {
   if(view->color == COLOR_WHITE)
@@ -475,6 +478,7 @@ static bool detect(pony_ctx_t* ctx, detector_t* d, view_t* view)
   send_conf(ctx, d, per);
   return true;
 }
+
 
 static void deferred(pony_ctx_t* ctx, detector_t* d)
 {
@@ -580,11 +584,21 @@ static void collect(pony_ctx_t* ctx, detector_t* d, perceived_t* per)
   perceived_free(per);
   d->collected++;
 }
+*/
 
+/*
 static void block(pony_ctx_t* ctx, detector_t* d, pony_actor_t* actor,
   size_t rc, deltamap_t* map)
 {
+  (void)ctx;
+  (void)d;
+  (void)actor;
+  (void)rc;
+  (void)map;
+
   view_t* view = get_view(d, actor, true);
+
+  (void)view;
 
   // update reference count
   view->rc = rc;
@@ -624,10 +638,15 @@ static void block(pony_ctx_t* ctx, detector_t* d, pony_actor_t* actor,
     // look for cycles
     deferred(ctx, d);
   }
+
 }
+*/
 
 static void unblock(detector_t* d, pony_actor_t* actor)
 {
+  (void)d;
+  (void)actor;
+  /*
   view_t key;
   key.actor = actor;
   size_t index = HASHMAP_UNKNOWN;
@@ -648,10 +667,16 @@ static void unblock(detector_t* d, pony_actor_t* actor)
 
   // if we're in a perceived cycle, that cycle is invalid
   expire(d, view);
+  */
 }
 
 static void ack(pony_ctx_t* ctx, detector_t* d, size_t token)
 {
+  (void)ctx;
+  (void)d;
+  (void)token;
+
+/*
   perceived_t key;
   key.token = token;
   size_t index = HASHMAP_UNKNOWN;
@@ -671,6 +696,7 @@ static void ack(pony_ctx_t* ctx, detector_t* d, size_t token)
 
   if((per->ack & (d->conf_group - 1)) == 0)
     send_conf(ctx, d, per);
+    */
 }
 
 static void final(pony_ctx_t* ctx, pony_actor_t* self)
@@ -834,13 +860,15 @@ static void cycle_dispatch(pony_ctx_t* ctx, pony_actor_t* self,
     case ACTORMSG_BLOCK:
     {
       block_msg_t* m = (block_msg_t*)msg;
-      block(ctx, d, m->actor, m->rc, m->delta);
+      //block(ctx, d, m->actor, m->rc, m->delta)
+      (void)m;
       break;
     }
 
     case ACTORMSG_UNBLOCK:
     {
       pony_msgp_t* m = (pony_msgp_t*)msg;
+      (void)m;
       unblock(d, (pony_actor_t*)m->p);
       break;
     }
@@ -848,6 +876,7 @@ static void cycle_dispatch(pony_ctx_t* ctx, pony_actor_t* self,
     case ACTORMSG_ACK:
     {
       pony_msgi_t* m = (pony_msgi_t*)msg;
+      (void)m;
       ack(ctx, d, m->i);
       break;
     }
@@ -914,13 +943,19 @@ void ponyint_cycle_block(pony_ctx_t* ctx, pony_actor_t* actor, gc_t* gc)
   pony_assert(ctx->current == actor);
   pony_assert(&actor->gc == gc);
 
-  block_msg_t* m = (block_msg_t*)pony_alloc_msg(
-    POOL_INDEX(sizeof(block_msg_t)), ACTORMSG_BLOCK);
+  //pony_sendp(ctx, cycle_detector, ACTORMSG_BLOCK, actor);
 
-  m->actor = actor;
-  m->rc = ponyint_gc_rc(gc);
-  m->delta = ponyint_gc_delta(gc);
-  pony_assert(gc->delta == NULL);
+  //block_msg_t* m = (block_msg_t*)pony_alloc_msg(
+  //  POOL_INDEX(sizeof(block_msg_t)), ACTORMSG_BLOCK);
+
+  pony_msgp_t* m = (pony_msgp_t*)pony_alloc_msg(
+    POOL_INDEX(sizeof(pony_msgp_t)), ACTORMSG_BLOCK);
+ // m->p = p;
+
+ //m->actor = actor;
+ // m->rc = ponyint_gc_rc(gc);
+ // m->delta = ponyint_gc_delta(gc);
+ // pony_assert(gc->delta == NULL);
 
   pony_sendv(ctx, cycle_detector, &m->msg, &m->msg, false);
 }

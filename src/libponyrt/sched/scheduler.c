@@ -232,15 +232,6 @@ static pony_actor_t* steal(scheduler_t* sched)
 {
   bool block_sent = false;
 
-  if(ponyint_mutemap_size(&sched->mute_mapping) == 0)
-  {
-    // Only send block message if we don't have any muted actors.
-    // If we have at least one muted actor it means we aren't really
-    // blocked. There's work that can eventually be done.
-    send_msg(0, SCHED_BLOCK, 0);
-    block_sent = true;
-  }
-
   uint64_t tsc = ponyint_cpu_tick();
   pony_actor_t* actor;
 
@@ -269,16 +260,6 @@ static pony_actor_t* steal(scheduler_t* sched)
       actor = pop_global(sched);
       if(actor != NULL)
         break;
-      else
-      {
-        if (ponyint_mutemap_size(&sched->mute_mapping) == 0 && !block_sent)
-        {
-          // Someone else stole from our newly unmuted actor. If we have no
-          // more muted actors, we need to inform everyone that we are blocked
-          send_msg(0, SCHED_BLOCK, 0);
-          block_sent = true;
-        }
-      }
     }
 
     if(quiescent(sched, tsc, tsc2))
@@ -286,13 +267,21 @@ static pony_actor_t* steal(scheduler_t* sched)
       DTRACE2(WORK_STEAL_FAILURE, (uintptr_t)sched, (uintptr_t)victim);
       return NULL;
     }
+
+    // 10 billion cycles is roughly 5 seconds, depending on clock speed.
+    if (!block_sent &&
+      ((tsc2 - tsc) > 10000000000) &&
+      (ponyint_mutemap_size(&sched->mute_mapping) == 0))
+    {
+      send_msg(0, SCHED_BLOCK, 0);
+      block_sent = true;
+    }
   }
 
   if(block_sent)
   {
     // Only send unblock message if sent one while trying to steal
     send_msg(0, SCHED_UNBLOCK, 0);
-    ;
   }
   return actor;
 }
