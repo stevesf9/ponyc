@@ -294,6 +294,12 @@ trait val Integer[A: Integer[A] val] is Real[A]
     """
     Multiply `y` with this integer and return the result and a flag indicating overflow.
     """
+
+  fun modc(y: A): (A, Bool)
+    """
+    Calculated the ramainder of this number dividec by y and return the result and a flag indicating division by zero or overflow.
+    """
+
   fun op_and(y: A): A => this and y
   fun op_or(y: A): A => this or y
   fun op_xor(y: A): A => this xor y
